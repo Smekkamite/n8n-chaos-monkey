@@ -1,0 +1,12 @@
+{
+  "requiredFields": [
+    "event_id",
+    "customer_email",
+    "subject",
+    "message"
+  ],
+  "identityFields": [
+    "event_id"
+  ],
+  "duplicateConcurrency": 10
+}
