@@ -1,0 +1,6 @@
+{
+  "event_id": "demo-event-001",
+  "customer_email": "customer@example.invalid",
+  "subject": "Offline fixture",
+  "message": "This payload is synthetic and contains no real customer data."
+}
