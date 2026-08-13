@@ -1,0 +1,15 @@
+node_modules/
+chaos-results/
+*.tgz
+*.log
+.env
+.env.*
+!.env.example
+*api-key*
+*apikey*
+*secret*
+*credential*
+*webhook-header*.json
+campaign.json
+execution-traces.json
+scenarios.generated.json
