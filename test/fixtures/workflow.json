@@ -1,0 +1,23 @@
+{
+  "id": "fixture-workflow-id",
+  "name": "Fixture Workflow",
+  "active": true,
+  "nodes": [
+    {
+      "name": "Receive",
+      "type": "n8n-nodes-base.webhook",
+      "parameters": { "httpMethod": "POST", "path": "fixture" }
+    },
+    {
+      "name": "Normalize",
+      "type": "n8n-nodes-base.set",
+      "parameters": { "assignments": { "assignments": [{ "name": "email", "value": "={{ $json.body.email }}", "type": "string" }] } }
+    },
+    {
+      "name": "Create Draft",
+      "type": "n8n-nodes-base.gmail",
+      "parameters": { "resource": "draft", "operation": "create" }
+    }
+  ],
+  "connections": {}
+}
