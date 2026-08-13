@@ -1,0 +1,56 @@
+{
+  "faults": [
+    {
+      "id": "api_429_rate_limit",
+      "title": "API rate limit",
+      "status": 429,
+      "headers": { "retry-after": "30" },
+      "body": { "error": "rate_limit_exceeded", "message": "Chaos Monkey simulated rate limit" },
+      "expected": "Retry with bounded backoff or route to a controlled fallback."
+    },
+    {
+      "id": "api_500_server_error",
+      "title": "API server error",
+      "status": 500,
+      "body": { "error": "internal_error", "message": "Chaos Monkey simulated upstream failure" },
+      "expected": "Do not enter a success path; preserve the original event for retry or review."
+    },
+    {
+      "id": "api_timeout",
+      "title": "API timeout",
+      "delayMs": 30000,
+      "body": { "ok": true },
+      "expected": "Timeout deterministically and avoid duplicate retry side effects."
+    },
+    {
+      "id": "api_empty_response",
+      "title": "Empty API response",
+      "status": 200,
+      "body": "",
+      "contentType": "application/json",
+      "expected": "Treat an empty success response as invalid unless explicitly allowed."
+    },
+    {
+      "id": "api_changed_schema",
+      "title": "Changed response schema",
+      "status": 200,
+      "body": { "result": { "renamed_value": "unexpected" } },
+      "expected": "Validate the response schema and route safely on mismatch."
+    },
+    {
+      "id": "llm_malformed_json",
+      "title": "Malformed LLM JSON",
+      "status": 200,
+      "body": "{\"category\": \"GENERAL_QUESTION\",",
+      "contentType": "application/json",
+      "expected": "Do not continue to automatic actions; send to Human Review."
+    },
+    {
+      "id": "llm_invalid_schema",
+      "title": "LLM valid JSON, invalid schema",
+      "status": 200,
+      "body": { "confidence": "very high", "unknown_decision": true },
+      "expected": "Reject or quarantine output that does not match the required AI schema."
+    }
+  ]
+}
