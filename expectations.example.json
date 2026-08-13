@@ -1,0 +1,12 @@
+{
+  "requiredFields": [
+    "ticket_id",
+    "customer_email",
+    "subject",
+    "message"
+  ],
+  "identityFields": [
+    "ticket_id"
+  ],
+  "duplicateConcurrency": 10
+}
