@@ -1,0 +1,47 @@
+{
+  "id": "offline-fixture-workflow",
+  "name": "Offline Demo Support Intake",
+  "active": false,
+  "nodes": [
+    {
+      "name": "Receive Demo Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "offline-demo",
+        "responseMode": "responseNode"
+      }
+    },
+    {
+      "name": "Normalize Demo Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [240, 0],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "name": "event_id", "value": "={{ $json.body.event_id }}", "type": "string" },
+            { "name": "customer_email", "value": "={{ $json.body.customer_email }}", "type": "string" },
+            { "name": "subject", "value": "={{ $json.body.subject }}", "type": "string" },
+            { "name": "message", "value": "={{ $json.body.message }}", "type": "string" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Write Demo Audit Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [480, 0],
+      "parameters": {
+        "operation": "append"
+      }
+    }
+  ],
+  "connections": {
+    "Receive Demo Event": { "main": [[{ "node": "Normalize Demo Input", "type": "main", "index": 0 }]] },
+    "Normalize Demo Input": { "main": [[{ "node": "Write Demo Audit Row", "type": "main", "index": 0 }]] }
+  }
+}
