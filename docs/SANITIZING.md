@@ -1,6 +1,6 @@
 # Sanitizing results before sharing
 
-Monkey does not upload reports. You decide what leaves your machine.
+Break My Workflow does not upload reports. You decide what leaves your machine.
 
 Before sharing any artifact, review it for:
 
