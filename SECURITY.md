@@ -1,10 +1,10 @@
 # Security and threat model
 
-n8n Chaos Monkey is a local testing tool that intentionally sends malformed and repeated requests to workflows. Treat it as an active test harness, not a passive linter.
+Break My Workflow is a local testing tool that intentionally sends malformed and repeated requests to workflows. Treat it as an active test harness, not a passive linter.
 
 ## Trust boundaries
 
-Monkey trusts the operator to provide:
+Break My Workflow trusts the operator to provide:
 
 - a workflow export safe to inspect;
 - a valid payload safe to mutate;
@@ -12,7 +12,7 @@ Monkey trusts the operator to provide:
 - temporary credentials with the minimum useful access;
 - a workflow whose configured side effects are safe to execute repeatedly.
 
-The workflow, n8n instance, webhook target, and all external services called by the workflow are outside Monkey's control.
+The workflow, n8n instance, webhook target, and all external services called by the workflow are outside Break My Workflow's control.
 
 ## Network behavior
 

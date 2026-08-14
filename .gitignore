@@ -1,5 +1,6 @@
 node_modules/
-chaos-results/
+break-my-workflow-results/
+.npm-cache/
 *.tgz
 *.log
 .env

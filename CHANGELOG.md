@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Renamed the project to Break My Workflow.
+- Renamed the package, executable, main script, reports, and default output directory.
+
 ## 0.1.1 — 2026-08-13
 
 - Added static workflow analysis and webhook-input mutation.

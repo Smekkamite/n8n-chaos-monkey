@@ -1,14 +1,14 @@
 {
-  "name": "n8n-chaos-monkey",
-  "version": "0.1.1",
+  "name": "break-my-workflow",
+  "version": "0.1.2",
   "description": "A small local tool that tries to break n8n webhook workflows",
   "type": "module",
   "bin": {
-    "n8n-chaos": "./chaos-tester.mjs"
+    "break-workflow": "./break-my-workflow.mjs"
   },
   "files": [
-    "chaos-tester.mjs",
-    "chaos-mock.mjs",
+    "break-my-workflow.mjs",
+    "fault-mock.mjs",
     "fault-scenarios.json",
     "expectations.example.json",
     "README.md",
@@ -31,15 +31,15 @@
   ],
   "scripts": {
     "test": "node --test",
-    "demo": "node chaos-tester.mjs analyze --workflow examples/demo-workflow.json",
-    "analyze": "node chaos-tester.mjs analyze",
-    "generate": "node chaos-tester.mjs generate",
-    "run": "node chaos-tester.mjs run",
-    "assess": "node chaos-tester.mjs assess",
-    "trace": "node chaos-tester.mjs trace",
-    "collect": "node chaos-tester.mjs collect",
-    "report": "node chaos-tester.mjs report",
-    "mock": "node chaos-mock.mjs",
+    "demo": "node break-my-workflow.mjs analyze --workflow examples/demo-workflow.json",
+    "analyze": "node break-my-workflow.mjs analyze",
+    "generate": "node break-my-workflow.mjs generate",
+    "run": "node break-my-workflow.mjs run",
+    "assess": "node break-my-workflow.mjs assess",
+    "trace": "node break-my-workflow.mjs trace",
+    "collect": "node break-my-workflow.mjs collect",
+    "report": "node break-my-workflow.mjs report",
+    "mock": "node fault-mock.mjs",
     "test:cli": "node --test"
   }
 }

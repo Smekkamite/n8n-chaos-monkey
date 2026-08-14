@@ -1,4 +1,4 @@
-# n8n Chaos Monkey
+# Break My Workflow
 
 A small local tool that tries to break n8n webhook workflows.
 
@@ -34,7 +34,7 @@ This is an early version. Detection is heuristic and some results need human rev
 
 I originally built this for one of my own workflows.
 
-Monkey sent the same event 10 times concurrently. All 10 executions wrote to Google Sheets and 6 created Gmail drafts before OpenAI rate limiting stopped the others.
+Break My Workflow sent the same event 10 times concurrently. All 10 executions wrote to Google Sheets and 6 created Gmail drafts before OpenAI rate limiting stopped the others.
 
 The workflow looked fine during normal testing, but it did not have atomic idempotency protection.
 
@@ -47,7 +47,7 @@ Requirements: Node.js 20 or newer. There are no runtime dependencies.
 Clone the repository and run:
 
 ```powershell
-node .\chaos-tester.mjs analyze --workflow .\examples\demo-workflow.json
+node .\break-my-workflow.mjs analyze --workflow .\examples\demo-workflow.json
 ```
 
 This only reads the included fake workflow. It does not connect to n8n or make network requests.
@@ -55,7 +55,7 @@ This only reads the included fake workflow. It does not connect to n8n or make n
 You can also inspect the generated test cases:
 
 ```powershell
-node .\chaos-tester.mjs generate `
+node .\break-my-workflow.mjs generate `
   --workflow .\examples\demo-workflow.json `
   --payload .\examples\demo-payload.json `
   --expectations .\examples\demo-expectations.json `
@@ -69,13 +69,13 @@ Use a local or isolated n8n instance and a copy of the workflow. A campaign real
 Save a temporary n8n API key in a text file, then run:
 
 ```powershell
-node .\chaos-tester.mjs test `
+node .\break-my-workflow.mjs test `
   --workflow "C:\path\workflow.json" `
   --payload "C:\path\valid-payload.json" `
   --webhook "http://localhost:5678/webhook/my-test-workflow" `
   --api-key-file "C:\path\temporary-n8n-api-key.txt" `
   --expectations ".\expectations.json" `
-  --out-dir ".\chaos-results\first-run"
+  --out-dir ".\break-my-workflow-results\first-run"
 ```
 
 The API key is used to read the matching n8n executions. It is not written to the report.
@@ -97,7 +97,7 @@ The file format is:
 
 ## Expectations
 
-Monkey can see which fields a workflow reads, but it cannot always know which fields your workflow considers mandatory.
+Break My Workflow can see which fields a workflow reads, but it cannot always know which fields your workflow considers mandatory.
 
 An expectations file makes that explicit:
 
@@ -129,7 +129,7 @@ Reports may still contain workflow names, node names, URLs, execution IDs, respo
 - Non-local webhook targets are blocked unless `--allow-nonlocal-target` is provided.
 - Redirects are not followed.
 - Requests have a timeout.
-- Monkey does not modify or activate workflows.
+- Break My Workflow does not modify or activate workflows.
 - There is no telemetry or hosted backend.
 
 These limits do not make a production workflow safe to test. Use a test copy and test credentials.
@@ -150,8 +150,8 @@ The main command is `test`. The individual stages are also available:
 analyze → generate → run → collect → report
 ```
 
-Run `node chaos-tester.mjs --help` for the available options.
+Run `node break-my-workflow.mjs --help` for the available options.
 
 ## License
 
-v0.1.1 is released under the [Functional Source License 1.1, Apache 2.0 Future License](LICENSE).
+v0.1.2 is released under the [Functional Source License 1.1, Apache 2.0 Future License](LICENSE).
