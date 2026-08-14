@@ -1,24 +1,58 @@
 # n8n Chaos Monkey
 
-Local resilience testing for n8n webhook workflows.
+A small local tool that tries to break n8n webhook workflows.
 
-Monkey analyzes an exported workflow, mutates a known-valid webhook payload, sends controlled failure cases to an isolated workflow, correlates the resulting n8n executions, and produces Markdown and JSON findings.
+You give it:
 
-It is intentionally small: Node.js 20+, no runtime dependencies, no telemetry, and no hosted service.
+- an exported n8n workflow;
+- one valid webhook payload;
+- the URL of an active test copy of the workflow.
 
-> **Safety:** use a local or disposable test n8n instance. A campaign executes the workflow and can trigger every side effect configured in it, including emails, messages, database writes, API usage, or other external actions.
+It changes the payload, sends duplicate requests, looks at the resulting n8n executions, and writes a report.
 
-## Try it without trusting it
+The question it tries to answer is:
 
-Clone the repository, inspect the source, and begin with the completely offline demo:
+> My workflow works normally, but what happens when the input is wrong or the same event arrives ten times?
+
+## What it tests
+
+The current version checks:
+
+- a normal valid request;
+- missing fields;
+- null values;
+- wrong value types;
+- unexpected fields;
+- malformed JSON;
+- concurrent duplicate events.
+
+It also looks for nodes that call external services or create side effects, such as email drafts, messages, and database or spreadsheet writes.
+
+This is an early version. Detection is heuristic and some results need human review.
+
+## A real result
+
+I originally built this for one of my own workflows.
+
+Monkey sent the same event 10 times concurrently. All 10 executions wrote to Google Sheets and 6 created Gmail drafts before OpenAI rate limiting stopped the others.
+
+The workflow looked fine during normal testing, but it did not have atomic idempotency protection.
+
+A sanitized report is available in [examples/real-report-sanitized.md](examples/real-report-sanitized.md).
+
+## Try it offline
+
+Requirements: Node.js 20 or newer. There are no runtime dependencies.
+
+Clone the repository and run:
 
 ```powershell
 node .\chaos-tester.mjs analyze --workflow .\examples\demo-workflow.json
 ```
 
-No installation, n8n instance, workflow credentials, webhook, or API key is required for `analyze`.
+This only reads the included fake workflow. It does not connect to n8n or make network requests.
 
-Generate the demo scenarios offline:
+You can also inspect the generated test cases:
 
 ```powershell
 node .\chaos-tester.mjs generate `
@@ -28,58 +62,31 @@ node .\chaos-tester.mjs generate `
   --out .\scenarios.generated.json
 ```
 
-The recommended trust progression is:
+## Test a workflow
 
-1. `analyze` — reads one workflow export; no network access.
-2. `generate` — reads a valid payload and writes proposed mutations; no network access.
-3. `run` — sends those mutations only to the webhook URL you specify.
-4. `collect` / `test` — optionally reads matching execution evidence from your n8n API.
+Use a local or isolated n8n instance and a copy of the workflow. A campaign really executes the workflow, so real credentials can still send real emails, messages, or writes.
 
-## What Monkey can access
-
-Depending on the command and arguments you choose, Monkey can:
-
-- read the workflow, payload, expectations, API-key, and webhook-header files you explicitly name;
-- write campaign and report files to the output path you choose;
-- send generated POST requests to the exact webhook URL you provide;
-- call the exact n8n API base you provide to read workflow status and executions;
-- execute the side effects already configured in the test workflow.
-
-## What Monkey does not do
-
-- No telemetry, analytics, update service, or developer-operated backend.
-- No upload of workflows, payloads, credentials, traces, or reports.
-- No access to n8n credential values through the workflow API.
-- No workflow modification, activation, deactivation, or deletion.
-- No API keys or webhook secrets accepted directly as command-line values.
-- No automatic redirects; HTTP redirects fail closed.
-- No non-local webhook target unless `--allow-nonlocal-target` is explicit.
-
-These statements describe v0.1.1. The relevant network calls are directly inspectable in `chaos-tester.mjs`.
-
-## Full campaign
-
-Requirements:
-
-- Node.js 20 or newer;
-- an exported n8n workflow JSON containing its workflow ID, or `--workflow-id`;
-- a representative valid JSON payload;
-- an active copy of that workflow in a local or isolated test n8n instance;
-- a temporary n8n API key able to read that workflow and its executions.
-
-Save the n8n API key in a local text file containing only the key. Then run:
+Save a temporary n8n API key in a text file, then run:
 
 ```powershell
 node .\chaos-tester.mjs test `
   --workflow "C:\path\workflow.json" `
   --payload "C:\path\valid-payload.json" `
-  --webhook "http://localhost:5678/webhook/my-isolated-test" `
+  --webhook "http://localhost:5678/webhook/my-test-workflow" `
   --api-key-file "C:\path\temporary-n8n-api-key.txt" `
   --expectations ".\expectations.json" `
   --out-dir ".\chaos-results\first-run"
 ```
 
-For a webhook protected by header authentication, create a local file that is excluded from Git:
+The API key is used to read the matching n8n executions. It is not written to the report.
+
+For a webhook protected by a custom header, add:
+
+```powershell
+--webhook-header-file "C:\path\webhook-header.json"
+```
+
+The file format is:
 
 ```json
 {
@@ -88,17 +95,11 @@ For a webhook protected by header authentication, create a local file that is ex
 }
 ```
 
-Then add:
+## Expectations
 
-```powershell
---webhook-header-file "C:\path\temporary-webhook-header.json"
-```
+Monkey can see which fields a workflow reads, but it cannot always know which fields your workflow considers mandatory.
 
-The header is used in memory and is not written to campaign or report files.
-
-## Expected behavior contract
-
-The export reveals fields used by expressions, but not necessarily which are required or identify an event. Declare that contract explicitly:
+An expectations file makes that explicit:
 
 ```json
 {
@@ -108,64 +109,49 @@ The export reveals fields used by expressions, but not necessarily which are req
 }
 ```
 
-Monkey gives each scenario a distinct string identity. Only the deliveries inside `duplicate_event` share one identity. UUID identity values remain valid UUIDs. String fields ending in `_id`, or common event/request/ticket ID names, are inferred when `identityFields` is omitted; explicit configuration is safer.
+`identityFields` is important: every scenario gets a different event ID, while the requests inside the duplicate test share the same ID.
 
-## Output and privacy
+## Output
 
-The output directory contains:
+A full campaign produces:
 
-- `campaign.json` — scenario metadata and HTTP observations;
-- `execution-traces.json` — execution IDs, node names, statuses, and errors;
-- `report.md` — readable findings;
-- `report.json` — structured verdicts, root causes, severity, and remediation.
+- `campaign.json` — HTTP results and scenario metadata;
+- `execution-traces.json` — executions and nodes reached;
+- `report.md` — readable results;
+- `report.json` — the same results as structured data.
 
-Generated request bodies are excluded from `campaign.json` by default. Use `--include-payloads` only when you deliberately want them for debugging.
+Payload bodies are not stored unless `--include-payloads` is used.
 
-Webhook responses, node names, error messages, target URLs, and workflow names may still be sensitive. Review every artifact before sharing it. See [docs/SANITIZING.md](docs/SANITIZING.md).
+Reports may still contain workflow names, node names, URLs, execution IDs, responses, and error messages. Read them before sharing them. See [docs/SANITIZING.md](docs/SANITIZING.md).
 
-Exit codes:
+## Safety limits
 
-- `0` — command completed and no failed resilience scenarios were reported;
-- `1` — configuration or runtime error;
-- `2` — campaign completed with at least one failed resilience scenario.
+- Non-local webhook targets are blocked unless `--allow-nonlocal-target` is provided.
+- Redirects are not followed.
+- Requests have a timeout.
+- Monkey does not modify or activate workflows.
+- There is no telemetry or hosted backend.
 
-## Scenarios in v0.1.1
+These limits do not make a production workflow safe to test. Use a test copy and test credentials.
 
-- valid baseline;
-- each observed input field missing;
-- null value;
-- incompatible type;
-- unexpected extra field;
-- malformed JSON;
-- duplicate concurrent event.
+## Current limitations
 
-Duplicate testing sends 10 synchronized deliveries by default. Override it with `--duplicate-concurrency N` (2–100) or in the expectations file.
+- Input detection mostly relies on expressions such as `$json.body.email`.
+- Side-effect detection is based on node type and operation.
+- A completed node does not always prove that a remote service committed the action.
+- Business-specific behavior still needs a human expectation.
+- Dependency faults such as 429, 500, and timeouts are still experimental.
 
-Static analysis recognizes Postgres `ON CONFLICT DO NOTHING` and Redis NX/set-if-not-exists as atomic candidates. Remove Duplicates, workflow static data, and Data Tables are not treated as proof of atomicity. The concurrent dynamic result decides.
+## Commands
 
-## Safety controls
+The main command is `test`. The individual stages are also available:
 
-- Campaigns reject `/webhook-test/` URLs because n8n registers them for one request only.
-- Non-local webhook targets require `--allow-nonlocal-target`.
-- Requests default to a 15-second timeout; configure with `--request-timeout-ms`.
-- Redirects are never followed.
-- The API key can come only from a file or `N8N_API_KEY`.
-- A one-command campaign verifies that the selected workflow is active before execution.
+```text
+analyze → generate → run → collect → report
+```
 
-Monkey cannot prove that an environment is safe. Inspect the workflow for side effects and use test credentials, accounts, databases, recipients, and provider quotas.
+Run `node chaos-tester.mjs --help` for the available options.
 
-## Limitations
+## License
 
-- Input fields are inferred primarily from expressions such as `$json.body.email`.
-- External-action detection is heuristic.
-- A completed external-action node is stronger evidence than merely reaching it, but it is not universal proof that a remote system committed the action.
-- Business-specific safety expectations still require an expectations contract or human review.
-- Dependency fault injection remains experimental and can require a test-only adapter.
-
-## Security and license
-
-See [SECURITY.md](SECURITY.md) for the threat model and vulnerability reporting guidance.
-
-This release uses the [Functional Source License 1.1, Apache 2.0 Future License](LICENSE). It is source-available, not OSI open source on release; the release converts to Apache 2.0 after two years under the license terms.
-# n8n-chaos-monkey
-Local chaos and resilience testing for n8n webhook workflows
+v0.1.1 is released under the [Functional Source License 1.1, Apache 2.0 Future License](LICENSE).
