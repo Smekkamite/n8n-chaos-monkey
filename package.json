@@ -1,6 +1,51 @@
 {
   "name": "n8n-chaos-monkey",
   "version": "0.1.1",
+  "description": "A small local tool that tries to break n8n webhook workflows",
+  "type": "module",
+  "bin": {
+    "n8n-chaos": "./chaos-tester.mjs"
+  },
+  "files": [
+    "chaos-tester.mjs",
+    "chaos-mock.mjs",
+    "fault-scenarios.json",
+    "expectations.example.json",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "docs",
+    "examples"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "FSL-1.1-ALv2",
+  "keywords": [
+    "n8n",
+    "chaos-engineering",
+    "resilience-testing",
+    "workflow-testing",
+    "fault-injection"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "demo": "node chaos-tester.mjs analyze --workflow examples/demo-workflow.json",
+    "analyze": "node chaos-tester.mjs analyze",
+    "generate": "node chaos-tester.mjs generate",
+    "run": "node chaos-tester.mjs run",
+    "assess": "node chaos-tester.mjs assess",
+    "trace": "node chaos-tester.mjs trace",
+    "collect": "node chaos-tester.mjs collect",
+    "report": "node chaos-tester.mjs report",
+    "mock": "node chaos-mock.mjs",
+    "test:cli": "node --test"
+  }
+}
+{
+  "name": "n8n-chaos-monkey",
+  "version": "0.1.1",
   "description": "Local resilience and chaos testing for n8n webhook workflows",
   "type": "module",
   "bin": {
