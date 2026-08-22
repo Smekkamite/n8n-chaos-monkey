@@ -41,4 +41,4 @@ Use temporary credentials and revoke or rotate them after testing. File permissi
 
 ## Reporting a vulnerability
 
-Until a dedicated security contact is published, open a GitHub issue containing no credentials, workflow exports, payloads, or private execution data. Ask for a private reporting channel if reproduction requires sensitive material.
+Use GitHub's private vulnerability reporting for this repository. Do not open a public issue containing credentials, workflow exports, payloads, execution data, or other sensitive reproduction material.

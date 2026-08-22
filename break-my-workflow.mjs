@@ -11,7 +11,7 @@ const opt = (name, fallback) => {
   return i === -1 ? fallback : args[i + 1];
 };
 const has = (name) => args.includes(name);
-const VERSION = '0.1.2';
+const VERSION = '0.1.3';
 const readJson = async (file) => JSON.parse(await fs.readFile(file, 'utf8'));
 const writeJson = async (file, value) => {
   await fs.mkdir(path.dirname(path.resolve(file)), { recursive: true });
@@ -209,25 +209,38 @@ async function collectExecutions() {
   if (!workflowId) throw new Error('collect requires --workflow-id <n8n-workflow-id>');
   if (!apiKey) throw new Error(`No API key found in ${keyFile ? `file ${keyFile}` : `environment variable ${keyEnv}`}. The key is never accepted as a CLI argument or saved to reports.`);
   const headers = { 'X-N8N-API-KEY': apiKey };
-  const listUrl = new URL(`${apiBase}/api/v1/executions`);
-  listUrl.searchParams.set('workflowId', workflowId);
-  listUrl.searchParams.set('limit', opt('--limit', '100'));
-  listUrl.searchParams.set('includeData', 'true');
   const campaignId = opt('--campaign-id');
   const expected = Number(opt('--expected', '0'));
   const waitMs = Number(opt('--wait-ms', '10000'));
   const settleMs = Number(opt('--settle-ms', '1500'));
   const requestTimeoutMs = Number(opt('--request-timeout-ms', '15000'));
+  const limit = Number(opt('--limit', '100'));
+  const maxPages = Number(opt('--max-pages', '20'));
+  if (!Number.isInteger(expected) || expected < 0) throw new Error('expected must be a non-negative integer.');
+  if (!Number.isInteger(waitMs) || waitMs < 250 || waitMs > 600_000) throw new Error('wait-ms must be an integer between 250 and 600000.');
   if (!Number.isInteger(settleMs) || settleMs < 250 || settleMs > waitMs) throw new Error('settle-ms must be an integer between 250 and wait-ms.');
+  if (!Number.isInteger(limit) || limit < 1 || limit > 250) throw new Error('limit must be an integer between 1 and 250.');
+  if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 100) throw new Error('max-pages must be an integer between 1 and 100.');
   const deadline = Date.now() + waitMs;
   let traces = [];
   let previousCount = -1;
   let lastChangeAt = Date.now();
   do {
-    const listResponse = await fetch(listUrl, fetchOptions(requestTimeoutMs, { headers }));
-    if (!listResponse.ok) throw new Error(`n8n execution list failed: HTTP ${listResponse.status}`);
-    const listPayload = await listResponse.json();
-    const executions = listPayload.data ?? listPayload.executions ?? [];
+    const executions = [];
+    let cursor;
+    for (let page = 0; page < maxPages; page += 1) {
+      const listUrl = new URL(`${apiBase}/api/v1/executions`);
+      listUrl.searchParams.set('workflowId', workflowId);
+      listUrl.searchParams.set('limit', String(limit));
+      listUrl.searchParams.set('includeData', 'true');
+      if (cursor) listUrl.searchParams.set('cursor', cursor);
+      const listResponse = await fetch(listUrl, fetchOptions(requestTimeoutMs, { headers }));
+      if (!listResponse.ok) throw new Error(`n8n execution list failed: HTTP ${listResponse.status}`);
+      const listPayload = await listResponse.json();
+      executions.push(...(listPayload.data ?? listPayload.executions ?? []));
+      cursor = listPayload.nextCursor;
+      if (!cursor) break;
+    }
     const expanded = await Promise.all(executions.map(async (execution) => {
       if (execution.data || execution.resultData) return execution;
       const response = await fetch(`${apiBase}/api/v1/executions/${execution.id}?includeData=true`, fetchOptions(requestTimeoutMs, { headers }));
@@ -271,7 +284,7 @@ async function reportCampaign() {
     const safeResponse = scenario.results.some((result) => result.status >= 400 && result.status < 500)
       || scenario.results.some((result) => /human[_ ]review/i.test(JSON.stringify(result.responseJson ?? result.response ?? '')));
     let status = 'WARN';
-    if (scenario.id === 'malformed_json') status = statuses.some((code) => code >= 400 && code < 500) ? 'PASS' : 'FAIL';
+    if (scenario.id === 'malformed_json') status = statuses.some((code) => code >= 400 && code < 500) && sideEffects.length === 0 ? 'PASS' : 'FAIL';
     else if (scenario.id === 'duplicate_event') {
       if (completedSideEffectExecutions > 1) status = 'FAIL';
       else if (reachedSideEffectExecutions > 1) status = 'WARN';
@@ -421,6 +434,8 @@ Options:
   --duplicate-concurrency N Concurrent duplicate deliveries (default 10)
   --wait-ms NUMBER          Execution collection timeout (default 15000)
   --settle-ms NUMBER        Stop after traces are stable (default 1500)
+  --limit NUMBER            Executions requested per API page (default 100)
+  --max-pages NUMBER        Maximum execution pages per poll (default 20)
   --request-timeout-ms N    Per-request timeout (default 15000)
   --include-payloads        Save generated request bodies in campaign.json
   --allow-nonlocal-target   Explicitly allow a non-local webhook

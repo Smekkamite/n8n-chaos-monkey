@@ -1,6 +1,6 @@
 {
   "name": "break-my-workflow",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A small local tool that tries to break n8n webhook workflows",
   "type": "module",
   "bin": {

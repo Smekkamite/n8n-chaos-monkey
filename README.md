@@ -44,22 +44,25 @@ A sanitized report is available in [examples/real-report-sanitized.md](examples/
 
 Requirements: Node.js 20 or newer. There are no runtime dependencies.
 
-Clone the repository and run:
+Clone the repository:
 
-```powershell
-node .\break-my-workflow.mjs analyze --workflow .\examples\demo-workflow.json
+```text
+git clone https://github.com/Smekkamite/break-my-workflow.git
+cd break-my-workflow
+```
+
+Then run the offline analysis. The same command works in PowerShell, Command Prompt, macOS, and Linux:
+
+```text
+node ./break-my-workflow.mjs analyze --workflow ./examples/demo-workflow.json
 ```
 
 This only reads the included fake workflow. It does not connect to n8n or make network requests.
 
 You can also inspect the generated test cases:
 
-```powershell
-node .\break-my-workflow.mjs generate `
-  --workflow .\examples\demo-workflow.json `
-  --payload .\examples\demo-payload.json `
-  --expectations .\examples\demo-expectations.json `
-  --out .\scenarios.generated.json
+```text
+node ./break-my-workflow.mjs generate --workflow ./examples/demo-workflow.json --payload ./examples/demo-payload.json --expectations ./examples/demo-expectations.json --out ./scenarios.generated.json
 ```
 
 ## Test a workflow
@@ -77,6 +80,8 @@ node .\break-my-workflow.mjs test `
   --expectations ".\expectations.json" `
   --out-dir ".\break-my-workflow-results\first-run"
 ```
+
+On macOS or Linux, use the same options with `/path/to/file` paths and either place the command on one line or continue lines with `\`.
 
 The API key is used to read the matching n8n executions. It is not written to the report.
 
@@ -154,4 +159,4 @@ Run `node break-my-workflow.mjs --help` for the available options.
 
 ## License
 
-v0.1.2 is released under the [Functional Source License 1.1, Apache 2.0 Future License](LICENSE).
+v0.1.3 is released under the [Functional Source License 1.1, Apache 2.0 Future License](LICENSE).
