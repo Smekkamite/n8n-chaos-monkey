@@ -16,7 +16,7 @@ test('prints help and version', () => {
   const help = run(['--help']);
   assert.equal(help.status, 0);
   assert.match(help.stdout, /break-workflow test/);
-  assert.equal(run(['--version']).stdout.trim(), '0.1.2');
+  assert.equal(run(['--version']).stdout.trim(), '0.1.3');
 });
 
 async function startHeaderServer(requestLimit = 1) {
@@ -30,6 +30,21 @@ async function startHeaderServer(requestLimit = 1) {
       if (match) { clearTimeout(timer); resolve(Number(match[1])); }
     });
     child.on('exit', (code) => { clearTimeout(timer); reject(new Error(`Header server exited with ${code}`)); });
+  });
+  return { child, port };
+}
+
+async function startN8nServer() {
+  const child = spawn(process.execPath, [support('n8n-server.mjs')], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const port = await new Promise((resolve, reject) => {
+    let output = '';
+    const timer = setTimeout(() => reject(new Error(`n8n server did not start: ${output}`)), 5000);
+    child.stdout.on('data', (chunk) => {
+      output += chunk;
+      const match = output.match(/PORT=(\d+)/);
+      if (match) { clearTimeout(timer); resolve(Number(match[1])); }
+    });
+    child.on('exit', (code) => { clearTimeout(timer); reject(new Error(`n8n server exited with ${code}`)); });
   });
   return { child, port };
 }
@@ -147,4 +162,79 @@ test('fails concurrent duplicates when multiple executions reach side effects', 
   const summary = JSON.parse(await fs.readFile(summaryFile, 'utf8'));
   assert.equal(summary.counts.FAIL, 1);
   assert.equal(summary.rootCauses[0].cause, 'Idempotency absent');
+});
+
+test('fails malformed JSON when an external side effect was reached', async () => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'break-my-workflow-malformed-'));
+  const campaignFile = path.join(temp, 'campaign.json');
+  const tracesFile = path.join(temp, 'traces.json');
+  const summaryFile = path.join(temp, 'summary.json');
+  await fs.writeFile(campaignFile, JSON.stringify({
+    campaignId: 'malformed-campaign',
+    analysis: { workflow: 'Fixture', risks: [{ node: 'Create Draft', risks: ['external side effect: email/draft'] }] },
+    results: [{ id: 'malformed_json', title: 'Malformed JSON body', results: [{ status: 400 }] }]
+  }));
+  await fs.writeFile(tracesFile, JSON.stringify({ traces: [{ testRun: { scenarioId: 'malformed_json' }, nodes: [{ name: 'Create Draft', status: 'COMPLETED' }], errors: [] }] }));
+  const result = run(['report', '--campaign', campaignFile, '--traces', tracesFile, '--out', path.join(temp, 'report.md'), '--json-out', summaryFile]);
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(await fs.readFile(summaryFile, 'utf8'));
+  assert.equal(summary.counts.FAIL, 1);
+});
+
+test('rejects invalid execution collection bounds', async () => {
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'break-my-workflow-bounds-'));
+  const keyFile = path.join(temp, 'key.txt');
+  await fs.writeFile(keyFile, 'fixture-api-key\n');
+  for (const args of [
+    ['--wait-ms', 'nope'],
+    ['--expected', '-1'],
+    ['--limit', '0'],
+    ['--max-pages', '0']
+  ]) {
+    const result = run(['collect', '--workflow-id', 'fixture-workflow-id', '--api-key-file', keyFile, ...args]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /must be/);
+  }
+});
+
+test('collects paginated execution traces', async (t) => {
+  const { child, port } = await startN8nServer();
+  t.after(() => child.kill());
+  const base = `http://127.0.0.1:${port}`;
+  for (let index = 0; index < 3; index += 1) {
+    const response = await fetch(`${base}/webhook/fixture`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-break-my-workflow-campaign': 'pagination-campaign', 'x-break-my-workflow-scenario': `case-${index}` },
+      body: '{}'
+    });
+    assert.equal(response.status, 200);
+  }
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'break-my-workflow-pages-'));
+  const keyFile = path.join(temp, 'key.txt');
+  const out = path.join(temp, 'traces.json');
+  await fs.writeFile(keyFile, 'fixture-api-key\n');
+  const result = run(['collect', '--api-base', base, '--workflow-id', 'fixture-workflow-id', '--api-key-file', keyFile, '--campaign-id', 'pagination-campaign', '--expected', '3', '--limit', '2', '--out', out]);
+  assert.equal(result.status, 0, result.stderr);
+  const traces = JSON.parse(await fs.readFile(out, 'utf8'));
+  assert.equal(traces.traces.length, 3);
+});
+
+test('runs a complete campaign against a fake n8n API', async (t) => {
+  const { child, port } = await startN8nServer();
+  t.after(() => child.kill());
+  const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'break-my-workflow-e2e-'));
+  const keyFile = path.join(temp, 'key.txt');
+  const outDir = path.join(temp, 'results');
+  await fs.writeFile(keyFile, 'fixture-api-key\n');
+  const result = run([
+    'test', '--workflow', fixture('workflow.json'), '--payload', fixture('payload.json'),
+    '--webhook', `http://127.0.0.1:${port}/webhook/fixture`, '--api-key-file', keyFile,
+    '--expectations', fixture('expectations.json'), '--duplicate-concurrency', '2',
+    '--wait-ms', '3000', '--settle-ms', '250', '--out-dir', outDir
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(await fs.readFile(path.join(outDir, 'report.json'), 'utf8'));
+  assert.equal(summary.counts.FAIL, 0);
+  assert.ok(summary.scenarios.some((scenario) => scenario.id === 'malformed_json' && scenario.status === 'PASS'));
+  assert.ok(summary.scenarios.some((scenario) => scenario.id === 'duplicate_event'));
 });
